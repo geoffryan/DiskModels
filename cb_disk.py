@@ -14,6 +14,7 @@ RsSolar = 2.953250077e5
 MSolar = 1.9885e33
 G = 6.6738e-8
 Year = 3.15569252e7
+pc = 3.086e18
 
 
 GMSolar = 0.5*RsSolar*c*c
@@ -229,6 +230,115 @@ def calc_gas_ff(r, GM, Mdot, Jdot, al, mu):
 
     return Sig, rho, Pi, P, vr, Q, Om, ka, H, T
 
+def cb_disk(r, GM, Mdot, a, tmerge, al=0.1, mu=0.615):
+
+    adot = -a/tmerge
+    J = math.sqrt(a*GM*GM*GM)/G
+    Jdot = 0.5*J*(3*G*Mdot/GM + adot/a)
+
+
+    dat = calc_thin_disk(r, GM, Mdot, Jdot, al, mu)
+    Sig, rho, Pi, P, vr, Q, Om, ka, H, T = dat
+
+    print("M:     {0:.3g} M_Solar".format(GM/GMSolar))
+    print("Mdot:  {0:.3g} g/s".format(Mdot))
+    print("Jdot:  {0:.3g} erg".format(Jdot))
+    print("alpha: {0:.3g}".format(al))
+
+    fig, ax = plotADisk(r, GM, Mdot, Jdot, al, mu, dat)
+
+
+def plotADisk(r, GM, Mdot, Jdot, al, mu, dat=None, fig=None, axArr=None):
+
+
+    Sig, rho, Pi, P, vr, Q, Om, ka, H, T = calc_thin_disk(
+                                                r, GM, Mdot, Jdot, al, mu)
+
+    Mach = R*Om*np.sqrt(rho/P)
+
+    Pg = pressureGas(rho, T, (mu,))
+    Pr = pressureRad(rho, T, (mu,))
+    kaES = opacityES(rho, T, (mu,))
+    kaFF = opacityFF(rho, T, (mu,))
+
+    if fig is None:
+        fig, axArr = plt.subplots(3,4, figsize=(16,9))
+
+    axArr[0,0].plot(R, Sig, 'k', lw=2)
+    axArr[0,0].set_xscale('log')
+    axArr[0,0].set_yscale('log')
+    axArr[0,0].set_xlabel(r'$R$ (cm)')
+    axArr[0,0].set_ylabel(r'$\Sigma$ (g/cm$^2$)')
+    
+    axArr[0,1].plot(R, rho, 'k', lw=2)
+    axArr[0,1].set_xscale('log')
+    axArr[0,1].set_yscale('log')
+    axArr[0,1].set_xlabel(r'$R$ (cm)')
+    axArr[0,1].set_ylabel(r'$\rho$ (g/cm$^3$)')
+
+    axArr[0,2].plot(R, P, 'k', lw=2)
+    axArr[0,2].plot(R, Pg, 'k:', lw=2)
+    axArr[0,2].plot(R, Pr, 'k--', lw=2)
+    axArr[0,2].set_xscale('log')
+    axArr[0,2].set_yscale('log')
+    axArr[0,2].set_xlabel(r'$R$ (cm)')
+    axArr[0,2].set_ylabel(r'$P$ (erg/cm$^2$)')
+
+    axArr[1,0].plot(R, -vr, 'k', lw=2)
+    axArr[1,0].set_xscale('log')
+    axArr[1,0].set_yscale('log')
+    axArr[1,0].set_xlabel(r'$R$ (cm)')
+    axArr[1,0].set_ylabel(r'$-v^r$ (cm/s)')
+    
+    axArr[1,1].plot(R, Q, 'k', lw=2)
+    axArr[1,1].set_xscale('log')
+    axArr[1,1].set_yscale('log')
+    axArr[1,1].set_xlabel(r'$R$ (cm)')
+    axArr[1,1].set_ylabel(r'$Q$ (erg/cm$^2$s)')
+
+    axArr[1,2].plot(R, Mach, 'k', lw=2)
+    axArr[1,2].set_xscale('log')
+    axArr[1,2].set_yscale('log')
+    axArr[1,2].set_xlabel(r'$R$ (cm)')
+    axArr[1,2].set_ylabel(r'$\mathcal{M}$')
+
+    axArr[2,0].plot(R, ka, 'k', lw=2)
+    axArr[2,0].plot(R, kaES, 'k:', lw=2)
+    axArr[2,0].plot(R, kaFF, 'k--', lw=2)
+    axArr[2,0].set_xscale('log')
+    axArr[2,0].set_yscale('log')
+    axArr[2,0].set_xlabel(r'$R$ (cm)')
+    axArr[2,0].set_ylabel(r'$\kappa$ (cm$^2$/g)')
+    
+    axArr[2,1].plot(R, H, 'k', lw=2)
+    axArr[2,1].set_xscale('log')
+    axArr[2,1].set_yscale('log')
+    axArr[2,1].set_xlabel(r'$R$ (cm)')
+    axArr[2,1].set_ylabel(r'$H$ (cm)')
+
+    axArr[2,2].plot(R, T, 'k', lw=2)
+    axArr[2,2].set_xscale('log')
+    axArr[2,2].set_yscale('log')
+    axArr[2,2].set_xlabel(r'$R$ (cm)')
+    axArr[2,2].set_ylabel(r'$T$ (K)')
+
+    axArr[0,3].plot(R, Sig*ka, 'k', lw=2)
+    axArr[0,3].set_xscale('log')
+    axArr[0,3].set_yscale('log')
+    axArr[0,3].set_xlabel(r'$R$ (cm)')
+    axArr[0,3].set_ylabel(r'$\tau$')
+    
+    axArr[1,3].plot(R, Om*np.sqrt(P/rho)/(np.pi*G*Sig), 'k', lw=2)
+    axArr[1,3].set_xscale('log')
+    axArr[1,3].set_yscale('log')
+    axArr[1,3].set_xlabel(r'$R$ (cm)')
+    axArr[1,3].set_ylabel(r'Toomre q')
+
+    fig.tight_layout()
+
+    return fig, axArr
+
+
 def plotTheDisks(r, GM, Mdot, Jdot, al, mu):
 
     Sig, rho, Pi, P, vr, Q, Om, ka, H, T = calc_thin_disk(
@@ -375,9 +485,17 @@ if __name__ == "__main__":
     Rin = 3 * (GM/GMSolar)*RsSolar * 1.00001
     #Rin = 10.0*RsSolar
 
+    a = 1000 * Rs
+    tmerge = 1.0e9 * Year
+    Rin = a
+    Ro = 1.0e5*Rin
+
     Jdot = Mdot*math.sqrt(GM*Rs)
     R = np.logspace(math.log10(Rin), math.log10(Ro), base=10.0, num=200)
     mu = 0.615
     al = 1.0e-2
 
-    plotTheDisks(R, GM, Mdot, Jdot, al, mu)
+    cb_disk(R, GM, Mdot, a, tmerge)
+    #plotTheDisks(R, GM, Mdot, Jdot, al, mu)
+
+    plt.show()
